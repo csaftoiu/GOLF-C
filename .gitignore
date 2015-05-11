@@ -1,0 +1,6 @@
+golf-cpu
+*.s
+*.pyc
+*.bin
+*.dbg
+
