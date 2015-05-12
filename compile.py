@@ -5,7 +5,7 @@ import argparse
 from pycparser import c_parser, c_ast
 
 
-PRELUDE = ["    call main", "    pop a, z", "    halt 0"]
+PRELUDE = ["    call main", "    pop a, z", "    halt a"]
 
 
 class Scope(object):
