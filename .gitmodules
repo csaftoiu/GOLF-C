@@ -1,0 +1,3 @@
+[submodule "golf-cpu"]
+	path = golf-cpu
+	url = https://github.com/orlp/golf-cpu.git
