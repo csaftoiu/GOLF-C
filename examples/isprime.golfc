@@ -1,14 +1,16 @@
 int main()
 {
-    int n = 66089;
+    int n = 1201021;
+
+    if (n%2 == 0) goto notprime;
 
     int i=3;
-    int end = n/2;
 loopstart:
-    if (i < end)
+    if (i*i <= n)
     {
         if (n % i == 0)
         {
+notprime:
             putchar('n');
             putchar('\n');
             return 0;

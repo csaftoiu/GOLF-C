@@ -35,7 +35,7 @@ class ObjectScope(object):
 class RegisterScope(object):
     def __init__(self):
         self.free_registers = set("abcdefghijklmnopqrstuvwxy")
-        self.dest_registers = []
+        self.dest_registers = [] # list of [reg, chomp_value]
         self.object_scopes = []
 
         self.enter_new_object_scope()
@@ -81,19 +81,32 @@ class RegisterScope(object):
         if r in self.free_registers:
             raise ValueError("Can't push free register as dest register")
 
-        self.dest_registers.append(r)
+        self.dest_registers.append([r, None])
         return r
 
-    def pop_dest_register(self, free=True):
-        res = self.dest_registers.pop()
+    def pop_dest_register(self, free=True, chomp=True):
+        res, chomp_value = self.dest_registers.pop()
         if free:
             self.free_register(res)
-        return res
+
+        if not chomp:
+            return False, res
+
+        if chomp_value is not None:
+            return True, chomp_value
+
+        return False, res
 
     def cur_dest_register(self):
         if not self.dest_registers:
             raise ValueError("No dest registers")
-        return self.dest_registers[-1]
+        return self.dest_registers[-1][0]
+
+    def mark_chomp(self, value):
+        if not self.dest_registers:
+            raise ValueError("No dest registers to mark chomp")
+
+        self.dest_registers[-1][1] = value
 
 
 class CompilerVisitor(c_ast.NodeVisitor):
@@ -137,6 +150,8 @@ class CompilerVisitor(c_ast.NodeVisitor):
             'putchar': ('int', ['int']),
             'getchar': ('int', ['int']),
         }
+
+        self.optimization_level = 1
 
     # Generation functions
     def increase_indent(self):
@@ -193,7 +208,7 @@ class CompilerVisitor(c_ast.NodeVisitor):
                 self.gen_instr("div", ignore, result, l, r)
             elif op == "*":
                 self.gen_instr("mul", result, ignore, l, r)
-            self.cur_scope().pop_dest_register()
+            self.pop_dest_register(chomp=False)
             return
 
         if op not in self.BINARY_OPS:
@@ -236,7 +251,7 @@ class CompilerVisitor(c_ast.NodeVisitor):
         self.gen_instr("jmp", label)
         self.calls.add(label)
 
-# Semantic functions
+    # Semantic functions
     def enter_new_scope(self):
         self.scopes.append(RegisterScope())
 
@@ -246,9 +261,23 @@ class CompilerVisitor(c_ast.NodeVisitor):
     def cur_scope(self):
         return self.scopes[-1]
 
+    def pop_dest_register(self, free=True, chomp=True):
+        chomped, val = self.cur_scope().pop_dest_register(free=free, chomp=chomp)
+        if chomped:
+            eaten = self.assembly[-1]
+            indent_level = len(eaten) - len(eaten.lstrip())
+            del self.assembly[-1]
+            if self.assembly[-1].lstrip().startswith("#"): # chomp comment?
+                comment_level = len(self.assembly[-1]) - len(self.assembly[-1].lstrip())
+                if comment_level == indent_level:
+                    del self.assembly[-1]
+            # self.gen_comment("chomped %s" % (stuff,))
+        return val
+
     # Visit functions
     def visit_ID(self, node):
         # move variable into dest
+        self.cur_scope().mark_chomp(self.cur_scope().get_var_register(node.name))
         self.gen_mov(self.cur_scope().cur_dest_register(), self.cur_scope().get_var_register(node.name))
 
     def visit_Decl(self, node):
@@ -265,14 +294,13 @@ class CompilerVisitor(c_ast.NodeVisitor):
         self.visit(node.type)
 
         # store it in a register
-        scope = self.cur_scope()
-        var_register = scope.allocate_register()
-        scope.cur_object_scope().assign_variable(node.name, var_register)
+        var_register = self.cur_scope().allocate_register()
+        self.cur_scope().cur_object_scope().assign_variable(node.name, var_register)
 
         if node.init:
-            scope.push_dest_register(var_register)
+            self.cur_scope().push_dest_register(var_register)
             self.visit(node.init)
-            scope.pop_dest_register(free=False)
+            self.pop_dest_register(free=False, chomp=False)
 
     def visit_TypeDecl(self, node):
         if node.quals:
@@ -287,22 +315,23 @@ class CompilerVisitor(c_ast.NodeVisitor):
     def visit_Constant(self, node):
         """Place the constant into the current destination register"""
         if node.type == "int":
+            self.cur_scope().mark_chomp(node.value)
             self.gen_mov(self.cur_scope().cur_dest_register(), node.value)
         elif node.type == "char":
+            self.cur_scope().mark_chomp(ord(eval(node.value)))
             self.gen_mov(self.cur_scope().cur_dest_register(), ord(eval(node.value)))
         else:
             raise NotImplementedError("Constant of type %s" % (node.type,))
 
     def visit_BinaryOp(self, node):
         """Place the result of the op into the current destination register"""
-        left = self.cur_scope().push_dest_register()
+        self.cur_scope().push_dest_register()
         self.visit(node.left)
+        left = self.pop_dest_register()
 
-        right = self.cur_scope().push_dest_register()
+        self.cur_scope().push_dest_register()
         self.visit(node.right)
-
-        self.cur_scope().pop_dest_register()
-        self.cur_scope().pop_dest_register()
+        right = self.pop_dest_register()
 
         self.gen_binary_op(node.op, left, right)
 
@@ -312,17 +341,17 @@ class CompilerVisitor(c_ast.NodeVisitor):
         if not isinstance(node.lvalue, c_ast.ID):
             raise ValueError("Assignment to non-ID %s" % (node.lvalue,))
 
-        value = self.cur_scope().push_dest_register()
+        self.cur_scope().push_dest_register()
         self.visit(node.rvalue)
+        value = self.pop_dest_register()
         self.gen_mov(self.cur_scope().get_var_register(node.lvalue.name), value)
-        self.cur_scope().pop_dest_register()
 
     def visit_If(self, node):
-        cond = self.cur_scope().push_dest_register()
+        self.cur_scope().push_dest_register()
         self.visit(node.cond)
+        cond = self.pop_dest_register()
         else_label = self.unique_label("else")
         self.gen_jz(else_label, cond)
-        self.cur_scope().pop_dest_register()
 
         if node.iftrue:
             self.visit(node.iftrue)
@@ -331,12 +360,10 @@ class CompilerVisitor(c_ast.NodeVisitor):
             self.visit(node.iffalse)
 
     def visit_Return(self, node):
-        dest = self.cur_scope().push_dest_register()
-
+        self.cur_scope().push_dest_register()
         self.visit(node.expr)
-
+        dest = self.pop_dest_register()
         self.gen_push_stack(dest)
-        self.cur_scope().pop_dest_register()
         self.gen_ret()
 
     def visit_FuncDef(self, node):
@@ -376,10 +403,10 @@ class CompilerVisitor(c_ast.NodeVisitor):
         # TODO: check arg types
         # push first args first
         for expr in node.args.exprs:
-            arg = self.cur_scope().push_dest_register()
+            self.cur_scope().push_dest_register()
             self.visit(expr)
+            arg = self.pop_dest_register()
             self.gen_push_stack(arg)
-            self.cur_scope().pop_dest_register()
         # call
         self.gen_call(node.name.name)
         if ret_val == "int":
@@ -392,7 +419,7 @@ class CompilerVisitor(c_ast.NodeVisitor):
             self.gen_pop_stack(self.cur_scope().cur_dest_register())
 
             if waste:
-                self.cur_scope().pop_dest_register()
+                self.pop_dest_register(chomp=False)
 
         elif ret_val == "void":
             pass
@@ -419,8 +446,8 @@ class CompilerVisitor(c_ast.NodeVisitor):
 
     def visit(self, node):
         if node.__class__.__name__ in self.REF_INDENT_NODES:
-            self.gen_source_ref(node)
             self.increase_indent()
+            self.gen_source_ref(node)
 
         c_ast.NodeVisitor.visit(self, node)
 
