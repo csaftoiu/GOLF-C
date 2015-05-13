@@ -2,49 +2,85 @@
     pop a, z
     halt a
 
-main:
-     # 3: int n = 25806268819
-     mov a, 25806268819
-     # 5: (n % 2) == 0
-      div g, b, a, 2
-     cmp c, b, 0
-    jz __examples_isprime_golfc_else_0, c
-    jmp notprime
+readint:
+     # 3: int res = 0
+     mov a, 0
+     # 4: int c
+read_loop_start:
+    # 6: c = getchar()
+    call getchar
+    pop b, z
+    mov c, b
+     # 7: (c == 10) | (c == (0 - 1))
+      cmp d, c, 10
+      # 7: c == (0 - 1)
+       sub k, 0, 1
+      cmp i, c, k
+     or e, d, i
+    jz __examples_isprime_golfc_else_0, e
+     # 9: return res;
+     push z, a
+     ret 
 __examples_isprime_golfc_else_0:
-     # 7: int i = 3
-     mov i, 3
+    # 11: res = (10 * res) + (c - 48)
+     # 11: (10 * res) + (c - 48)
+      mul n, s, 10, a
+      sub r, c, 48
+     add o, n, r
+    mov a, o
+    jmp read_loop_start
+    ret 
+main:
+     # 17: int n
+    # 19: n = readint()
+    call readint
+    pop c, z
+    mov a, c
+     cmp b, a, 2
+    jz __examples_isprime_golfc_else_1, b
+    jmp prime
+__examples_isprime_golfc_else_1:
+     # 22: (n % 2) == 0
+      div k, f, a, 2
+     cmp g, f, 0
+    jz __examples_isprime_golfc_else_2, g
+    jmp notprime
+__examples_isprime_golfc_else_2:
+     # 24: int i = 3
+     mov m, 3
 loopstart:
-     # 9: (i * i) <= n
-      # 9: i * i
-      mul k, l, i, i
-     leq h, k, a
-    jz __examples_isprime_golfc_else_1, h
-     # 11: (n % i) == 0
-      # 11: n % i
-      div r, q, a, i
-     cmp n, q, 0
-    jz __examples_isprime_golfc_else_2, n
+     # 26: (i * i) <= n
+      # 26: i * i
+      mul o, p, m, m
+     leq l, o, a
+    jz __examples_isprime_golfc_else_3, l
+     # 28: (n % i) == 0
+      # 28: n % i
+      div v, u, a, m
+     cmp r, u, 0
+    jz __examples_isprime_golfc_else_4, r
 notprime:
     push z, 110
     call putchar
-    pop w, z
+    pop c, z
     push z, 10
     call putchar
-    pop y, z
+    pop e, z
      push z, 0
      ret 
-__examples_isprime_golfc_else_2:
-    # 18: i = i + 2
-     add c, i, 2
-    mov i, c
+__examples_isprime_golfc_else_4:
+    # 35: i = i + 2
+     add g, m, 2
+    mov m, g
     jmp loopstart
-__examples_isprime_golfc_else_1:
+__examples_isprime_golfc_else_3:
+prime:
     push z, 121
     call putchar
-    pop g, z
+    pop k, z
     push z, 10
     call putchar
-    pop h, z
+    pop l, z
      push z, 0
      ret 
     ret 
@@ -53,5 +89,10 @@ putchar:     # int putchar(int a)
     pop a, z   # int a
     sw -1, a
     push z, 0  # return 0
+    ret
+
+getchar:     # int getchar()
+    lw a, -1
+    push z, a
     ret
 

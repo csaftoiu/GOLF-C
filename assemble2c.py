@@ -76,7 +76,7 @@ def assemble2c(lines):
     for instr in instructions:
         for i, arg in enumerate(instr.args):
             if isinstance(arg, Label):
-                labels[arg.instr_nr] = arg
+                labels.setdefault(arg.instr_nr, set()).add(arg)
 
     print(labels)
 
@@ -103,8 +103,9 @@ int main(int argc, char **argv)
     for i, instr in enumerate(instructions):
         cycles = count_pseudo_cycles(instr)
         if i in labels:
-            result.append("%s:" % labels[i].name)
-            print(labels[i])
+            for label in labels[i]:
+                result.append("%s:" % label.name)
+                print(label)
         print(instr)
 
         result.append("    // %s" % lines[instr.debug_line].strip())

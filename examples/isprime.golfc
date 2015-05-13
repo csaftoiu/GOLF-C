@@ -1,7 +1,24 @@
+int readint()
+{
+    int res = 0;
+    int c;
+read_loop_start:
+    c = getchar();
+    if ((c == 10) | (c == 0-1))
+    {
+        return res;
+    }
+    res = 10*res + (c - 48);
+    goto read_loop_start;
+}
+
 int main()
 {
-    int n = 25806268819;
+    int n;
 
+    n = readint();
+
+    if (n == 2) goto prime;
     if (n%2 == 0) goto notprime;
 
     int i=3;
@@ -19,6 +36,7 @@ notprime:
         goto loopstart;
     }
 
+prime:
     putchar('y');
     putchar('\n');
     return 0;

@@ -12,6 +12,11 @@ putchar:     # int putchar(int a)
     sw -1, a
     push z, 0  # return 0
     ret
+
+getchar:     # int getchar()
+    lw a, -1
+    push z, a
+    ret
 """
 
 
@@ -148,7 +153,7 @@ class CompilerVisitor(c_ast.NodeVisitor):
 
         self.func_types = {
             'putchar': ('int', ['int']),
-            'getchar': ('int', ['int']),
+            'getchar': ('int', []),
         }
 
         self.optimization_level = 1
@@ -367,6 +372,9 @@ class CompilerVisitor(c_ast.NodeVisitor):
         self.gen_ret()
 
     def visit_FuncDef(self, node):
+        if node.decl.name in self.func_types:
+            raise ValueError("Already-defined function: %s" % (node,))
+
         # entry point
         self.gen_label(node.decl.name)
 
@@ -374,10 +382,14 @@ class CompilerVisitor(c_ast.NodeVisitor):
         func_decl = node.decl.type
         if func_decl.args:
             raise NotImplementedError("Function with arguments")
+        arg_types = []
 
         # semantic check return type
         ret_type = func_decl.type
         self.visit(ret_type)
+
+        # add func as known to allow recursion
+        self.func_types[node.decl.name] = (ret_type.type.names[0], arg_types)
 
         # process body. TODO: enforce proper return type
         self.enter_new_scope()
@@ -390,19 +402,21 @@ class CompilerVisitor(c_ast.NodeVisitor):
             raise NotImplementedError("Indirect function calls")
 
         if node.name.name not in self.func_types:
-            raise ValueError("Call to unknown function %s" % (node.name,))
+            raise ValueError("Call to unknown function %s" % (node.name.name,))
 
         ret_val, arg_types = self.func_types[node.name.name]
         if ret_val not in ("int", "void"):
-            raise NotImplementedError("Non-int/void return value")
+            raise NotImplementedError("Non-int/void return value %s" % (ret_val,))
 
-        if len(arg_types) != len(node.args.exprs):
+        exprs = node.args.exprs if node.args else []
+
+        if len(arg_types) != len(exprs):
             raise ValueError("%s expected %d arguments, got %d" % (
-                node.name, len(arg_types), len(node.args.exprs)))
+                node.name, len(arg_types), len(exprs)))
 
         # TODO: check arg types
         # push first args first
-        for expr in node.args.exprs:
+        for expr in exprs:
             self.cur_scope().push_dest_register()
             self.visit(expr)
             arg = self.pop_dest_register()
