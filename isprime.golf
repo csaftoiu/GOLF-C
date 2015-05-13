@@ -1,0 +1,57 @@
+    call main
+    pop a, z
+    halt a
+
+main:
+     # 3: int n = 25806268819
+     mov a, 25806268819
+     # 5: (n % 2) == 0
+      div g, b, a, 2
+     cmp c, b, 0
+    jz __examples_isprime_golfc_else_0, c
+    jmp notprime
+__examples_isprime_golfc_else_0:
+     # 7: int i = 3
+     mov i, 3
+loopstart:
+     # 9: (i * i) <= n
+      # 9: i * i
+      mul k, l, i, i
+     leq h, k, a
+    jz __examples_isprime_golfc_else_1, h
+     # 11: (n % i) == 0
+      # 11: n % i
+      div r, q, a, i
+     cmp n, q, 0
+    jz __examples_isprime_golfc_else_2, n
+notprime:
+    push z, 110
+    call putchar
+    pop w, z
+    push z, 10
+    call putchar
+    pop y, z
+     push z, 0
+     ret 
+__examples_isprime_golfc_else_2:
+    # 18: i = i + 2
+     add c, i, 2
+    mov i, c
+    jmp loopstart
+__examples_isprime_golfc_else_1:
+    push z, 121
+    call putchar
+    pop g, z
+    push z, 10
+    call putchar
+    pop h, z
+     push z, 0
+     ret 
+    ret 
+
+putchar:     # int putchar(int a)
+    pop a, z   # int a
+    sw -1, a
+    push z, 0  # return 0
+    ret
+
