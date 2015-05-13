@@ -1,6 +1,6 @@
 int main()
 {
-    int n = 1201021;
+    int n = 25806268819;
 
     if (n%2 == 0) goto notprime;
 

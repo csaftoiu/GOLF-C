@@ -5,3 +5,4 @@
 *.dbg
 cpp.exe
 fake_libc_include
+*.golf.c
