@@ -1,4 +1,7 @@
 *.s
+*.golfs
 *.pyc
 *.bin
 *.dbg
+cpp.exe
+fake_libc_include

@@ -1,0 +1,23 @@
+int main()
+{
+    int n = 66089;
+
+    int i=3;
+    int end = n/2;
+loopstart:
+    if (i < end)
+    {
+        if (n % i == 0)
+        {
+            putchar('n');
+            putchar('\n');
+            return 0;
+        }
+        i = i + 2;
+        goto loopstart;
+    }
+
+    putchar('y');
+    putchar('\n');
+    return 0;
+}
